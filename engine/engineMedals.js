@@ -1,99 +1,145 @@
-/*
-    LittleJS Medal System
-    - Tracks and displays medals
-    - Saves medals to local storage
-    - Newgrounds and OS13k integration
-*/
+/** 
+ * LittleJS Medal System
+ * <br> - Tracks and displays medals
+ * <br> - Saves medals to local storage
+ * <br> - Newgrounds and OS13k integration
+ * @namespace Medals
+ */
 
 'use strict';
 
-const medals = [], medalsDisplayQueue = [];
-let medalsPreventUnlock, medalsGameName = engineName, medalsContext, medalsDisplayTimer, newgrounds;
+/** List of all medals
+ *  @memberof Medals */
+const medals = [];
 
-function medalsInit(gameName, context, newgroundsAppID, newgroundsCipher)
+/** Set to stop medals from being unlockable (like if cheats are enabled)
+ *  @memberof Medals */
+let medalsPreventUnlock;
+
+/** This can used to enable Newgrounds functionality
+ *  @type {Newgrounds}
+ *  @memberof Medals */
+let newgrounds;
+
+// Engine internal variables not exposed to documentation
+let medalsDisplayQueue = [], medalsSaveName, medalsDisplayTimeLast;
+
+///////////////////////////////////////////////////////////////////////////////
+
+/** Initialize medals with a save name used for storage
+ *  <br> - Call this after creating all medals
+ *  <br> - Checks if medals are unlocked
+ *  @param {String} saveName
+ *  @memberof Medals */
+function medalsInit(saveName)
 {
-    medalsGameName = gameName;
-    medalsContext = context;
-
     // check if medals are unlocked
-    debugMedals || medals.forEach(medal=> medal.unlocked = localStorage[medal.storageKey()]);
-
-    // start up newgrounds only if requested
-    if (newgroundsAppID)
-        newgrounds = new Newgrounds(newgroundsAppID, newgroundsCipher);
+    medalsSaveName = saveName;
+    debugMedals || medals.forEach(medal=> localStorage[medal.storageKey()]);
 }
 
+/** 
+ * Medal Object - Tracks an unlockable medal 
+ * @example
+ * // create a medal
+ * const medal_example = new Medal(0, 'Example Medal', 'More info about the medal goes here.', '🎖️');
+ * 
+ * // initialize medals
+ * medalsInit('Example Game');
+ * 
+ * // unlock the medal
+ * medal_example.unlock();
+ */
 class Medal
 {
+    /** Create an medal object and adds it to the list of medals
+     *  @param {Number} id            - The unique identifier of the medal
+     *  @param {String} name          - Name of the medal
+     *  @param {String} [description] - Description of the medal
+     *  @param {String} [icon='🏆']  - Icon for the medal
+     *  @param {String} [src]         - Image location for the medal
+     */
     constructor(id, name, description='', icon='🏆', src)
     {
         ASSERT(id >= 0 && !medals[id]);
-        this.id = id;
+
+        // save attributes and add to list of medals
+        medals[this.id = id] = this;
         this.name = name;
         this.description = description;
         this.icon = icon;
-
-        // add to list of medals
-        medals[id] = this;
-
+        this.image = new Image();
         if (src)
-        {
-            // load image
-            this.image = new Image();
             this.image.src = src;
-        }
     }
 
+    /** Unlocks a medal if not already unlocked */
     unlock()
     {
         if (medalsPreventUnlock || this.unlocked)
             return;
 
         // save the medal
+        ASSERT(medalsSaveName); // save name must be set
         localStorage[this.storageKey()] = this.unlocked = 1;
         medalsDisplayQueue.push(this);
 
         // save for newgrounds and OS13K
         newgrounds && newgrounds.unlockMedal(this.id);
-        localStorage['OS13kTrophy,' + this.icon + ',' + medalsGameName + ',' + this.name] = this.description;
-    }
- 
-    storageKey()
-    {
-        return medalsGameName + '_medal_' + this.id;
+        localStorage['OS13kTrophy,' + this.icon + ',' + medalsSaveName + ',' + this.name] = this.description;
     }
 
+    /** Render a medal
+     *  @param {Number} [hidePercent=0] - How much to slide the medal off screen
+     */
     render(hidePercent=0)
     {
+        const context = overlayContext;
+        const width = min(medalDisplayWidth, mainCanvas.width);
+        const x = overlayCanvas.width - width;
         const y = -medalDisplayHeight*hidePercent;
 
         // draw containing rect and clip to that region
-        const context = medalsContext || mainContext;
         context.save();
         context.beginPath();
         context.fillStyle = '#ddd'
-        context.fill(context.rect(0, y, medalDisplayWidth, medalDisplayHeight));
-        context.strokeStyle = context.fillStyle = '#000';
-        context.lineWidth = 2; 
+        context.fill(context.rect(x, y, width, medalDisplayHeight));
+        context.strokeStyle = '#000';
+        context.lineWidth = 3;
         context.stroke();
         context.clip();
 
+        // draw the icon and text
+        this.renderIcon(x+15+medalDisplayIconSize/2, y+medalDisplayHeight/2);
+        context.textAlign = 'left';
+        context.font = '38px '+ fontDefault;
+        context.fillText(this.name, x+medalDisplayIconSize+30, y+28);
+        context.font = '24px '+ fontDefault;
+        context.fillText(this.description, x+medalDisplayIconSize+30, y+60);
+        context.restore();
+    }
+
+    /** Render the icon for a medal
+     *  @param {Number} x - Screen space X position
+     *  @param {Number} y - Screen space Y position
+     *  @param {Number} [size=medalDisplayIconSize] - Screen space size
+     */
+    renderIcon(x, y, size=medalDisplayIconSize)
+    {
         // draw the image or icon
+        const context = overlayContext;
+        context.fillStyle = '#000';
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        context.font = '3em '+ defaultFont;
-        if (this.image)
-            context.drawImage(this.image, 15, y+(medalDisplayHeight-medalDisplayIconSize)/2, 
-                medalDisplayIconSize, medalDisplayIconSize);
+        context.font = size*.7 + 'px '+ fontDefault;
+        if (this.image.src)
+            context.drawImage(this.image, x-size/2, y-size/2, size, size);
         else
-            context.fillText(this.icon, 15+medalDisplayIconSize/2, y+medalDisplayHeight/2); // show icon if there is no image
-
-        // draw the text
-        context.textAlign = 'left';
-        context.fillText(this.name, medalDisplayIconSize+25, y+35);
-        context.font = '1.5em '+ defaultFont;
-        context.restore(context.fillText(this.description, medalDisplayIconSize+25, y+70));
+            context.fillText(this.icon, x, y); // show icon if there is no image
     }
+ 
+    // Get local storage key used by the medal
+    storageKey() { return medalsSaveName + '_' + this.id; }
 }
 
 // engine automatically renders medals
@@ -104,11 +150,11 @@ function medalsRender()
     
     // update first medal in queue
     const medal = medalsDisplayQueue[0];
-    const time = realTime - medalsDisplayTimer;
-    if (!medalsDisplayTimer)
-        medalsDisplayTimer = realTime;
+    const time = timeReal - medalsDisplayTimeLast;
+    if (!medalsDisplayTimeLast)
+        medalsDisplayTimeLast = timeReal;
     else if (time > medalDisplayTime)
-        medalsDisplayQueue.shift(medalsDisplayTimer = 0);
+        medalsDisplayQueue.shift(medalsDisplayTimeLast = 0);
     else
     {
         // slide on/off medals
@@ -121,26 +167,39 @@ function medalsRender()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Newgrounds API wrapper
 
+/** 
+ * Newgrounds API wrapper object
+ * @example
+ * // create a newgrounds object, replace the app id and cipher with your own
+ * const app_id = '53123:1ZuSTQ9l';
+ * const cipher = 'enF0vGH@Mj/FRASKL23Q==';
+ * newgrounds = new Newgrounds(app_id, cipher);
+ */
 class Newgrounds
 {
+    /** Create a newgrounds object
+     *  @param {Number} app_id   - The newgrounds App ID
+     *  @param {String} [cipher] - The encryption Key (AES-128/Base64) */
     constructor(app_id, cipher)
     {
         ASSERT(!newgrounds && app_id);
         this.app_id = app_id;
         this.cipher = cipher;
+        this.host = location ? location.hostname : '';
 
         // create an instance of CryptoJS for encrypted calls
-        if (cipher)
-            this.cryptoJS = CryptoJS();
+        cipher && (this.cryptoJS = CryptoJS());
 
         // get session id from url search params
         const url = new URL(window.location.href);
         this.session_id = url.searchParams.get('ngio_session_id') || 0;
 
+        if (this.session_id == 0)
+            return; // only use newgrounds when logged in
+
         // get medals
-        const medalsResult = this.call('Medal.getList', 0, 0);
+        const medalsResult = this.call('Medal.getList');
         this.medals = medalsResult ? medalsResult.result.data['medals'] : [];
         debugMedals && console.log(this.medals);
         for (const newgroundsMedal of this.medals)
@@ -149,44 +208,76 @@ class Newgrounds
             if (medal)
             {
                 // copy newgrounds medal data
-                medal.name = newgroundsMedal['name'];
+                medal.image.src =   newgroundsMedal['icon'];
+                medal.name =        newgroundsMedal['name'];
                 medal.description = newgroundsMedal['description'];
-                medal.unlocked = newgroundsMedal['unlocked'];
-                medal.image = new Image();
-                medal.image.src = newgroundsMedal['icon'];
+                medal.unlocked =    newgroundsMedal['unlocked'];
+                medal.difficulty =  newgroundsMedal['difficulty'];
+                medal.value =       newgroundsMedal['value'];
+
+                if (medal.value)
+                    medal.description = medal.description + ' (' + medal.value + ')';
             }
         }
     
         // get scoreboards
-        const scoreboardResult = this.call('ScoreBoard.getBoards', 0, 0);
+        const scoreboardResult = this.call('ScoreBoard.getBoards');
         this.scoreboards = scoreboardResult ? scoreboardResult.result.data.scoreboards : [];
         debugMedals && console.log(this.scoreboards);
+
+        const keepAliveMS = 5 * 60 * 1e3;
+        setInterval(()=>this.call('Gateway.ping', 0, 1), keepAliveMS);
     }
 
-    unlockMedal(id)
-    {
-        return this.call('Medal.unlock', {'id':id});
-    }
+    /** Send message to unlock a medal by id
+     * @param {Number} id - The medal id */
+    unlockMedal(id) { return this.call('Medal.unlock', {'id':id}, 1); }
 
-    postScore(id, value)
-    {
-        return this.call('ScoreBoard.postScore', {'id':id, 'value':value});
-    }
+    /** Send message to post score
+     * @param {Number} id    - The scoreboard id
+     * @param {Number} value - The score value */
+    postScore(id, value) { return this.call('ScoreBoard.postScore', {'id':id, 'value':value}, 1); }
 
+    /** Get scores from a scoreboard
+     * @param {Number} id         - The scoreboard id
+     * @param {String} [user=0]   - A user's id or name
+     * @param {Number} [social=0] - If true, only social scores will be loaded
+     * @param {Number} [skip=0]   - Number of scores to skip before start
+     * @param {Number} [limit=10] - Number of scores to include in the list
+     * @return {Object}           - The response JSON object
+     */
     getScores(id, user=0, social=0, skip=0, limit=10)
+    { return this.call('ScoreBoard.getScores', {'id':id, 'user':user, 'social':social, 'skip':skip, 'limit':limit}); }
+
+    /** Send message to log a view */
+    logView() { return this.call('App.logView', {'host':this.host}, 1); }
+
+    /** Send a message to call a component of the Newgrounds API
+     * @param {String}  component      - Name of the component
+     * @param {Object}  [parameters=0] - Parameters to use for call
+     * @param {Boolean} [async=0]      - If true, don't wait for response before continuing (avoid stall)
+     * @return {Object}                - The response JSON object
+     */
+    call(component, parameters=0, async=0)
     {
-        return this.call('ScoreBoard.getScores', 
-            {'id':id, 'user':user, 'social':social, 'skip':skip, 'limit':limit}, 0);
-    }
-    
-    call(component, parameters=0, async=1)
-    {
+        const call = {'component':component, 'parameters':parameters};
+        if (this.cipher)
+        {
+            // encrypt using AES-128 Base64 with cryptoJS
+            const cryptoJS = this.cryptoJS;
+            const aesKey = cryptoJS['enc']['Base64']['parse'](this.cipher);
+            const iv = cryptoJS['lib']['WordArray']['random'](16);
+            const encrypted = cryptoJS['AES']['encrypt'](JSON.stringify(call), aesKey, {'iv':iv});
+            call['secure'] = cryptoJS['enc']['Base64']['stringify'](iv.concat(encrypted['ciphertext']));
+            call['parameters'] = 0;
+        }
+
         // build the input object
         const input = 
         {
             'app_id':     this.app_id,
             'session_id': this.session_id,
-            'call':       this.encryptCall({'component':component, 'parameters':parameters})
+            'call':       call
         };
 
         // build post data
@@ -200,21 +291,6 @@ class Newgrounds
         xmlHttp.send(formData);
         debugMedals && console.log(xmlHttp.responseText);
         return xmlHttp.responseText && JSON.parse(xmlHttp.responseText);
-    }
-    
-    encryptCall(call)
-    {
-        if (!this.cipher)
-            return call;
-        
-        // encrypt using AES-128 Base64 with cryptoJS
-        const cryptoJS = this.cryptoJS;
-        const aesKey = cryptoJS['enc']['Base64']['parse'](this.cipher);
-        const iv = cryptoJS['lib']['WordArray']['random'](16);
-        const encrypted = cryptoJS['AES']['encrypt'](JSON.stringify(call), aesKey, {'iv':iv});
-        call['secure'] = cryptoJS['enc']['Base64']['stringify'](iv.concat(encrypted['ciphertext']));
-        call['parameters'] = 0;
-        return call;
     }
 }
 

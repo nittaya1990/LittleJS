@@ -1,82 +1,180 @@
-/*
-    LittleJS Audio System
-    - ZzFX Sound Effects
-    - ZzFXM Music
-    - Speech Synthesis
-    - Can attenuate zzfx sounds by camera range
-*/
+/** 
+ * LittleJS Audio System
+ * <br> - <a href=https://killedbyapixel.github.io/ZzFX/>ZzFX Sound Effects</a>
+ * <br> - <a href=https://keithclark.github.io/ZzFXM/>ZzFXM Music</a>
+ * <br> - Caches sounds and music for fast playback
+ * <br> - Can attenuate and apply stereo panning to sounds
+ * <br> - Ability to play mp3, ogg, and wave files
+ * <br> - Speech synthesis wrapper functions
+ */
 
 'use strict';
 
-let audioContext; // audio context used by the engine
-
-// play a zzfx sound in world space with attenuation and culling
-function playSound(zzfxSound, pos, range=defaultSoundRange, volumeScale=1, pitchScale=1)
+/** 
+ * Sound Object - Stores a zzfx sound for later use and can be played positionally
+ * <br>
+ * <br><b><a href=https://killedbyapixel.github.io/ZzFX/>Create sounds using the ZzFX Sound Designer.</a></b>
+ * @example
+ * // create a sound
+ * const sound_example = new Sound([.5,.5]);
+ * 
+ * // play the sound
+ * sound_example.play();
+ */
+class Sound
 {
-    if (!soundEnable) return;
-
-    let pan = 0;
-    if (pos)
+    /** Create a sound object and cache the zzfx samples for later use
+     *  @param {Array}  zzfxSound - Array of zzfx parameters, ex. [.5,.5]
+     *  @param {Number} [range=soundDefaultRange] - World space max range of sound, will not play if camera is farther away
+     *  @param {Number} [taper=soundDefaultTaper] - At what percentage of range should it start tapering off
+     */
+    constructor(zzfxSound, range=soundDefaultRange, taper=soundDefaultTaper)
     {
-        if (range)
-        {
-            // apply range based fade
-            const lengthSquared = cameraPos.distanceSquared(pos);
-            const maxRange = range * (soundTaperPecent + 1);
-            if (lengthSquared > maxRange**2)
-                return; // out of range
+        if (!soundEnable) return;
 
-            // attenuate volume by distance
-            volumeScale *= percent(lengthSquared**.5, range, maxRange);
-        }
+        /** @property {Number} - World space max range of sound, will not play if camera is farther away */
+        this.range = range;
 
-        // get pan from screen space coords
-        pan = 2*worldToScreen(pos).x/mainCanvas.width-1;
+        /** @property {Number} - At what percentage of range should it start tapering off */
+        this.taper = taper;
+
+        // get randomness from sound parameters
+        this.randomness = zzfxSound[1] || 0;
+        zzfxSound[1] = 0;
+
+        // generate sound now for fast playback
+        this.cachedSamples = zzfxG(...zzfxSound);
     }
 
-    // copy sound (so changes aren't permanant)
-    zzfxSound = [...zzfxSound];
+    /** Play the sound
+     *  @param {Vector2} [pos] - World space position to play the sound, sound is not attenuated if null
+     *  @param {Number}  [volume=1] - How much to scale volume by (in addition to range fade)
+     *  @param {Number}  [pitch=1] - How much to scale pitch by (also adjusted by this.randomness)
+     *  @param {Number}  [randomnessScale=1] - How much to scale randomness
+     *  @return {AudioBufferSourceNode} - The audio, can be used to stop sound later
+     */
+    play(pos, volume=1, pitch=1, randomnessScale=1)
+    {
+        if (!soundEnable) return;
 
-    // scale volume and pitch
-    zzfxSound[0] = (zzfxSound[0]||1) * volumeScale;
-    zzfxSound[2] = (zzfxSound[2]||220) * pitchScale;
+        let pan = 0;
+        if (pos)
+        {
+            const range = this.range;
+            if (range)
+            {
+                // apply range based fade
+                const lengthSquared = cameraPos.distanceSquared(pos);
+                if (lengthSquared > range*range)
+                    return; // out of range
 
-    // play the sound
-    return zzfxP(pan, zzfxG(...zzfxSound));
+                // attenuate volume by distance
+                volume *= percent(lengthSquared**.5, range, range*this.taper);
+            }
+
+            // get pan from screen space coords
+            pan = worldToScreen(pos).x * 2/mainCanvas.width - 1;
+        }
+
+        // play the sound
+        const playbackRate = pitch + pitch * this.randomness*randomnessScale*rand(-1,1);
+        return playSamples([this.cachedSamples], volume, playbackRate, pan);
+    }
+
+    /** Play the sound as a note with a semitone offset
+     *  @param {Number}  semitoneOffset - How many semitones to offset pitch
+     *  @param {Vector2} [pos] - World space position to play the sound, sound is not attenuated if null
+     *  @param {Number}  [volume=1] - How much to scale volume by (in addition to range fade)
+     *  @return {AudioBufferSourceNode} - The audio, can be used to stop sound later
+     */
+    playNote(semitoneOffset, pos, volume=1)
+    {
+        if (!soundEnable) return;
+
+        return this.play(pos, volume, 2**(semitoneOffset/12), 0);
+    }
 }
 
-// render and play zzfxm music with an option to loop
-function playMusic(zzfxmMusic, loop=0, pan=0) 
+/**
+ * Music Object - Stores a zzfx music track for later use
+ * <br>
+ * <br><b><a href=https://keithclark.github.io/ZzFXM/>Create music with the ZzFXM tracker.</a></b>
+ * @example
+ * // create some music
+ * const music_example = new Music(
+ * [
+ *     [                         // instruments
+ *       [,0,400]                // simple note
+ *     ], 
+ *     [                         // patterns
+ *         [                     // pattern 1
+ *             [                 // channel 0
+ *                 0, -1,        // instrument 0, left speaker
+ *                 1, 0, 9, 1    // channel notes
+ *             ], 
+ *             [                 // channel 1
+ *                 0, 1,         // instrument 1, right speaker
+ *                 0, 12, 17, -1 // channel notes
+ *             ]
+ *         ],
+ *     ],
+ *     [0, 0, 0, 0], // sequence, play pattern 0 four times
+ *     90            // BPM
+ * ]);
+ * 
+ * // play the music
+ * music_example.play();
+ */
+class Music
 {
-    if (!soundEnable) return;
+    /** Create a music object and cache the zzfx music samples for later use
+     *  @param {Array} zzfxMusic - Array of zzfx music parameters
+     */
+    constructor(zzfxMusic)
+    {
+        if (!soundEnable) return;
 
-    return playSamples(zzfxM(...zzfxmMusic), loop, pan);
+        this.cachedSamples = zzfxM(...zzfxMusic);
+    }
+
+    /** Play the music
+     *  @param {Number}  [volume=1] - How much to scale volume by
+     *  @param {Boolean} [loop=1] - True if the music should loop when it reaches the end
+     *  @return {AudioBufferSourceNode} - The audio node, can be used to stop sound later
+     */
+    play(volume = 1, loop = 1)
+    {
+        if (!soundEnable) return;
+
+        return playSamples(this.cachedSamples, volume, 1, 0, loop);
+    }
 }
 
-// play cached samples to avoid pause when playing music/sounds
-function playSamples(samples, loop=0, pan=0) 
-{
-    if (!soundEnable) return;
-
-    const source = zzfxP(pan,...samples);
-    if (source)
-        source.loop = loop;
-    return source;
-}
-
-// play mp3 or wav audio from a local file or url
-function playAudioFile(url, loop=0, volumeScale=1)
+/** Play an mp3 or wav audio from a local file or url
+ *  @param {String}  url - Location of sound file to play
+ *  @param {Number}  [volume=1] - How much to scale volume by
+ *  @param {Boolean} [loop=1] - True if the music should loop when it reaches the end
+ *  @return {HTMLAudioElement} - The audio element for this sound
+ *  @memberof Audio */
+function playAudioFile(url, volume=1, loop=1)
 {
     if (!soundEnable) return;
 
     const audio = new Audio(url);
+    audio.volume = soundVolume * volume;
     audio.loop = loop;
-    audio.volume = volumeScale * audioVolume;
     audio.play();
     return audio;
 }
 
-// speak text with passed in settings
+/** Speak text with passed in settings
+ *  @param {String} text - The text to speak
+ *  @param {String} [language] - The language/accent to use (examples: en, it, ru, ja, zh)
+ *  @param {Number} [volume=1] - How much to scale volume by
+ *  @param {Number} [rate=1] - How quickly to speak
+ *  @param {Number} [pitch=1] - How much to change the pitch by
+ *  @return {SpeechSynthesisUtterance} - The utterance that was spoken
+ *  @memberof Audio */
 function speak(text, language='', volume=1, rate=1, pitch=1)
 {
     if (!soundEnable || !speechSynthesis) return;
@@ -88,47 +186,100 @@ function speak(text, language='', volume=1, rate=1, pitch=1)
     // build utterance and speak
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = language;
-    utterance.volume = volume*audioVolume*3;
+    utterance.volume = 2*volume*soundVolume;
     utterance.rate = rate;
     utterance.pitch = pitch;
     speechSynthesis.speak(utterance);
+    return utterance;
 }
 
-// stop all queued speech
-const stopSpeech = ()=> speechSynthesis && speechSynthesis.cancel();
+/** Stop all queued speech
+ *  @memberof Audio */
+const speakStop = ()=> speechSynthesis && speechSynthesis.cancel();
+
+/** Get frequency of a note on a musical scale
+ *  @param {Number} semitoneOffset - How many semitones away from the root note
+ *  @param {Number} [rootNoteFrequency=220] - Frequency at semitone offset 0
+ *  @return {Number} - The frequency of the note
+ *  @memberof Audio */
+const getNoteFrequency = (semitoneOffset, rootFrequency=220)=> rootFrequency * 2**(semitoneOffset/12); 
 
 ///////////////////////////////////////////////////////////////////////////////
-// ZzFXMicro - Zuper Zmall Zound Zynth - v1.1.8 by Frank Force
 
-const zzfxR = 44100; // sample rate
-const zzfx = (...z) => zzfxP(0, zzfxG(...z)); // generate and play sound
-function zzfxP(pan,...samples)  // play samples
+/** Audio context used by the engine
+ *  @memberof Audio */
+let audioContext;
+
+/** Play cached audio samples with given settings
+ *  @param {Array}   sampleChannels - Array of arrays of samples to play (for stereo playback)
+ *  @param {Number}  [volume=1] - How much to scale volume by
+ *  @param {Number}  [rate=1] - The playback rate to use
+ *  @param {Number}  [pan=0] - How much to apply stereo panning
+ *  @param {Boolean} [loop=0] - True if the sound should loop when it reaches the end
+ *  @return {AudioBufferSourceNode} - The audio node of the sound played
+ *  @memberof Audio */
+function playSamples(sampleChannels, volume=1, rate=1, pan=0, loop=0) 
 {
     if (!soundEnable) return;
-    
+
     // create audio context
     if (!audioContext)
         audioContext = new (window.AudioContext||webkitAudioContext);
 
+    // fix stalled audio
+    audioContext.resume();
+
+    // prevent sounds from building up if they can't be played
+    if (audioContext.state != 'running')
+        return;
+
     // create buffer and source
-    const buffer = audioContext.createBuffer(samples.length, samples[0].length, zzfxR), 
+    const buffer = audioContext.createBuffer(sampleChannels.length, sampleChannels[0].length, zzfxR), 
         source = audioContext.createBufferSource();
 
-    // copy samples to buffer
-    samples.map((d,i)=> buffer.getChannelData(i).set(d));
+    // copy samples to buffer and setup source
+    sampleChannels.forEach((c,i)=> buffer.getChannelData(i).set(c));
     source.buffer = buffer;
+    source.playbackRate.value = rate;
+    source.loop = loop;
 
-    // create pan node
-    pan = clamp(pan, 1, -1);
-    const panNode = new StereoPannerNode(audioContext, {'pan':pan});
-    source.connect(panNode).connect(audioContext.destination);
+    // create and connect gain node (createGain is more widley spported then GainNode construtor)
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = soundVolume*volume;
+    gainNode.connect(audioContext.destination);
+
+    // connect source to gain
+    (
+        window.StereoPannerNode ? // create pan node if possible
+        source.connect(new StereoPannerNode(audioContext, {'pan':clamp(pan, -1, 1)}))
+        : source
+    )
+    .connect(gainNode);
 
     // play and return sound
     source.start();
     return source;
 }
 
-function zzfxG // generate samples
+///////////////////////////////////////////////////////////////////////////////
+// ZzFXMicro - Zuper Zmall Zound Zynth - v1.1.8 by Frank Force
+
+/** Generate and play a ZzFX sound
+ *  <br>
+ *  <br><b><a href=https://killedbyapixel.github.io/ZzFX/>Create sounds using the ZzFX Sound Designer.</a></b>
+ *  @param {Array} zzfxSound - Array of ZzFX parameters, ex. [.5,.5]
+ *  @return {Array} - Array of audio samples
+ *  @memberof Audio */
+const zzfx = (...zzfxSound) => playSamples([zzfxG(...zzfxSound)]);
+
+/** Sample rate used for all ZzFX sounds
+ *  @default 44100
+ *  @memberof Audio */
+const zzfxR = 44100; 
+
+/** Generate samples for a ZzFX sound
+ *  @memberof Audio */
+function zzfxG
 (
     // parameters
     volume = 1, randomness = .05, frequency = 220, attack = 0, sustain = 0,
@@ -140,7 +291,7 @@ function zzfxG // generate samples
     // init parameters
     let PI2 = PI*2, sign = v => v>0?1:-1,
         startSlide = slide *= 500 * PI2 / zzfxR / zzfxR, b=[],
-        startFrequency = frequency *= (1 + randomness*2*Math.random() - randomness) * PI2 / zzfxR,
+        startFrequency = frequency *= (1 + randomness*rand(-1,1)) * PI2 / zzfxR,
         t=0, tm=0, i=0, j=1, r=0, c=0, s=0, f, length;
         
     // scale by sample rate
@@ -172,7 +323,7 @@ function zzfxG // generate samples
                     1 - tremolo + tremolo*Math.sin(PI2*i/repeatTime) // tremolo
                     : 1) *
                 sign(s)*(abs(s)**shapeCurve) *       // curve 0=square, 2=pointy
-                volume * audioVolume * (                  // envelope
+                volume * soundVolume * (                  // envelope
                 i < attack ? i/attack :                   // attack
                 i < attack + decay ?                      // decay
                 1-((i-attack)/decay)*(1-sustainVolume) :  // decay falloff
@@ -213,6 +364,13 @@ function zzfxG // generate samples
 ///////////////////////////////////////////////////////////////////////////////
 // ZzFX Music Renderer v2.0.3 by Keith Clark and Frank Force
 
+/** Generate samples for a ZzFM song with given parameters
+ *  @param {Array} instruments - Array of ZzFX sound paramaters
+ *  @param {Array} patterns - Array of pattern data
+ *  @param {Array} sequence - Array of pattern indexes
+ *  @param {Number} [BPM=125] - Playback speed of the song in BPM
+ *  @returns {Array} - Left and right channel sample data
+ *  @memberof Audio */
 function zzfxM(instruments, patterns, sequence, BPM = 125) 
 {
   let instrumentParameters;
@@ -247,7 +405,7 @@ function zzfxM(instruments, patterns, sequence, BPM = 125)
     sampleBuffer = [hasMore = notFirstBeat = pitch = outSampleOffset = 0];
 
     // for each pattern in sequence
-    sequence.map((patternIndex, sequenceIndex) => {
+    sequence.forEach((patternIndex, sequenceIndex) => {
       // get pattern for current channel, use empty 1 note pattern if none found
       patternChannel = patterns[patternIndex][channelIndex] || [0, 0, 0];
 

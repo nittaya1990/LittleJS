@@ -6,8 +6,7 @@
 
 'use strict';
 
-glOverlay = !isChrome; // fix slow rendering when not chrome
-pixelated = 0; // do not use pixelated rendering
+cavasPixelated = 0; // do not use pixelated rendering
 
 const fallTime = .2;
 const cameraOffset = vec2(0,-.5);
@@ -15,10 +14,10 @@ const backgroundColor = new Color(.2,.2,.2);
 const minMatchCount = 3;
 const highScoreKey = 'puzzleBestScore';
 
-// zzfx sounds
-const sound_goodMove = [.4,.2,250,.04,,.04,,,1,,,,,3];
-const sound_badMove =  [,,700,,,.07,,,,3.7,,,,3,,,.1];
-const sound_fall =     [.2,,1900,,,.01,,1.4,,91,,,,,,,,,,.7];
+// sound effects
+const sound_goodMove = new Sound([.4,.2,250,.04,,.04,,,1,,,,,3]);
+const sound_badMove = new Sound([,,700,,,.07,,,,3.7,,,,3,,,.1]);
+const sound_fall = new Sound([.2,,1900,,,.01,,1.4,,91,,,,,,,,,,.7]);
 
 let level, levelSize, levelFall, fallTimer, dragStartPos, comboCount, score, bestScore;
 
@@ -43,8 +42,8 @@ const setTile = (pos, data) => level[pos.x + pos.y * levelSize.x] = data;
 function gameInit()
 {
     // setup canvas
-    fixedWidth = 1920, fixedHeight = 1080; // 1080p
-    mainCanvas.style.background = backgroundColor.rgba();
+    canvasFixedSize = vec2(1920, 1080); // 1080p
+    mainCanvas.style.background = backgroundColor;
 
     // load high score
     bestScore = localStorage[highScoreKey] || 0;
@@ -101,9 +100,9 @@ function gameUpdate()
 
             if (keepFalling)
             {
-                const p = percent(comboCount, 0, 9);
+                const p = percent(comboCount, 9, 0);
                 fallTimer.set(fallTime*p);
-                playSound(sound_fall);
+                sound_fall.play();
             }
             else
                 fallTimer.unset();
@@ -146,12 +145,12 @@ function gameUpdate()
                         // undo if no matches
                         if (!fallTimer.isSet())
                         {
-                            playSound(sound_badMove);
+                            sound_badMove.play();
                             setTile(mouseTilePos, endTile);
                             setTile(dragStartPos, startTile);
                         }
                         else
-                            playSound(sound_goodMove);
+                            sound_goodMove.play();
                         dragStartPos = 0;
                     }
                 }
@@ -216,13 +215,13 @@ function gameRender()
 function gameRenderPost()
 {
     // draw text on top of everything
-    drawText('Score: ' + score,    cameraPos.add(vec2(-3,-3)), .9, new Color, .1);
-    drawText('Best: ' + bestScore, cameraPos.add(vec2( 3,-3)), .9, new Color, .1);
+    drawText('Score: ' + score,    cameraPos.add(vec2(-3,-3.1)), .9, new Color, .1);
+    drawText('Best: ' + bestScore, cameraPos.add(vec2( 3,-3.1)), .9, new Color, .1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Startup LittleJS Engine
-engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, 'tiles.png?1');
+engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, 'tiles.png');
 
 ///////////////////////////////////////////////////////////////////////////////
 // find and remove all runs of 3 or higher
@@ -285,7 +284,7 @@ function clearMatches()
             const color1 = tileColors[data];
             const color2 = color1.lerp(new Color, .5);
             new ParticleEmitter(
-                pos.add(vec2(.5)), 1, .1, 100, PI,   // pos, emitSize, emitTime, emitRate, emiteCone
+                pos.add(vec2(.5)), 0, 1, .1, 100, PI,// pos, angle, emitSize, emitTime, emitRate, emiteCone
                 undefined, undefined,                // tileIndex, tileSize
                 color1, color2,                      // colorStartA, colorStartB
                 color1.scale(1,0), color2.scale(1,0),// colorEndA, colorEndB

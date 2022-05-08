@@ -5,16 +5,13 @@
 
 'use strict';
 
-const lowGraphicsSettings = glOverlay = !isChrome; // fix slow rendering when not chrome
-
-let overlayCanvas, overlayContext, score, deaths;
+let score, deaths;
 
 ///////////////////////////////////////////////////////////////////////////////
 function gameInit()
 {
-    // create overlay canvas for hud
-    document.body.appendChild(overlayCanvas = document.createElement('canvas'));
-    overlayContext = overlayCanvas.getContext('2d');
+    // enable touch gamepad on touch devices
+    touchGamepadEnable = 1;
 
     // setup game
     score = deaths = 0;
@@ -22,9 +19,6 @@ function gameInit()
     cameraScale = 4*16;
     gameTimer.set();
     buildLevel();
-
-    // init medals
-    medalsInit('LitleJS Platformer', overlayContext);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -35,14 +29,14 @@ function gameUpdate()
     {
         player = new Player(playerStartPos);
         player.velocity = vec2(0,.1);
-        playSound(sound_jump);
+        sound_jump.play();
     }
     
     // mouse wheel = zoom
-    cameraScale = clamp(cameraScale*(1-mouseWheel/10), 1e3, 1);
+    cameraScale = clamp(cameraScale*(1-mouseWheel/10), 1, 1e3);
     
-    // C = drop crate
-    if (keyWasPressed(67))
+    // T = drop test crate
+    if (keyWasPressed(84))
         new Crate(mousePos);
     
     // E = drop enemy
@@ -78,24 +72,19 @@ function gameRender()
 ///////////////////////////////////////////////////////////////////////////////
 function gameRenderPost()
 {
-    // clear overlay canvas
-    overlayCanvas.width = mainCanvas.width;
-    overlayCanvas.height = mainCanvas.height;
-    overlayCanvas.style = mainCanvas.style.cssText;
-
     // draw to overlay canvas for hud rendering
-    const drawOverlayText = (text, x, y, size=70) =>
+    const drawText = (text, x, y, size=50) =>
     {
         overlayContext.textAlign = 'center';
         overlayContext.textBaseline = 'top';
         overlayContext.font = size + 'px arial';
         overlayContext.fillStyle = '#fff';
-        overlayContext.lineWidth = 3;
+        overlayContext.lineWidth = 2;
         overlayContext.strokeText(text, x, y);
         overlayContext.fillText(text, x, y);
     }
-    drawOverlayText('Score: ' + score,   overlayCanvas.width*1/3, 20);
-    drawOverlayText('Deaths: ' + deaths, overlayCanvas.width*2/3, 20);
+    drawText('Score: ' + score,   overlayCanvas.width*1/4, 20);
+    drawText('Deaths: ' + deaths, overlayCanvas.width*3/4, 20);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

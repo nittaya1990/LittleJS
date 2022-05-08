@@ -1,10 +1,10 @@
 /*
-    LittleJS - Build include file
-    By Frank Force 2021
-
-    This file is automatically included first by the build system.
+    LittleJS - Release Build
+    MIT License - Copyright 2021 Frank Force
+    
+    - This file is used for release builds in place of engineDebug.js
+    - Debug functionality will be disabled to lower size and increase performance
 */
-
 
 'use strict';
 
@@ -18,7 +18,7 @@ const debugRaycast = 0;
 const debugGamepads = 0;
 const debugMedals = 0;
 
-// allow debug commands to be removed from the final build
+// debug commands are automatically removed from the final build
 const ASSERT          = ()=> {}
 const debugInit       = ()=> {}
 const debugUpdate     = ()=> {}
@@ -28,4 +28,6 @@ const debugCircle     = ()=> {}
 const debugPoint      = ()=> {}
 const debugLine       = ()=> {}
 const debugAABB       = ()=> {}
+const debugText       = ()=> {}
+const debugClear      = ()=> {}
 const debugSaveCanvas = ()=> {}

@@ -2,35 +2,13 @@
 
 ## All aboard!
 
-LittleJS is a lightweight 2D JavaScript game engine with a super fast WebGL rendering system. The goal of this project is to be small, simple, and easy to use for a variety of applications from size coding game jams to commercial releases. This engine has everything necessary for most games including super fast rendering, physics, particles, sound effects, music, keyboard/mouse/gamepad input handling, update/render loop, and debug tools. 🚂
+LittleJS is a super lightweight JavaScript game engine with a fast hybrid rendering system. It provides everything necessary to make amazing games, including rendering, physics, particles, sound effects, music, input handling, and debug tools. LittleJS is designed to be extremely small yet powerful enough for a variety of applications, from game jams to commercial releases. The code is very well documented with a variety of examples to get you started. Choo-Choo! 🚂
+
+## [LittleJS Documentation](https://killedbyapixel.github.io/LittleJS/docs) - [LittleJS Trailer](https://youtu.be/chuBzGjv7Ms) - [LittleJS Trello](https://trello.com/b/E9zf1Xak/littlejs)
 
 ![LittleJS Screenshot](examples/screenshot.jpg)
 
-## Features
-
-- Very small footprint with no dependencies
-- Can render 10,000+ objects at 60fps, often several times more
-- Object oriented system with base class engine object
-- 2D physics and collision handling for axis aligned boxes
-- Positional audio effects with [zzfx](https://killedbyapixel.github.io/ZzFX/) and music with [zzfxm](https://keithclark.github.io/ZzFXM/), mp3s, or wavs
-- Input processing system with keyboard, mouse, gamepad, and touch support
-- Engine helper functions and classes like Vector2, Color, and Timer
-- Tile layer cached rendering and collision system for level data
-- Particle effects system (particle editor/designer in progress)
-- Medal system tracks and displays achievements with Newgrounds and OS13k integration
-- Several easy to understand example projects you can build on
-- Debug tools and debug rendering system
-- Example projects are compatible with mobile devices
-- Build system automatically combines everything, minifies, and removes unused code
-- For size coding competitions like [js13kGames](https://js13kgames.com/), starter project builds to a 7KB zip
-- You can build as a Windows executable with [electron](https://www.electronjs.org/) for distribution on platforms like Steam
-- Open Source with the [MIT license](https://github.com/KilledByAPixel/LittleJS/blob/main/LICENSE) so it can be used to make commercial games
-
-## [LittleJS Trailer](https://youtu.be/chuBzGjv7Ms)
-
-## [LittleJS Trello Roadmap](https://trello.com/b/E9zf1Xak/littlejs)
-
-## Example Starter Projects
+## Example Projects
 
 ### [Hello World](https://killedbyapixel.github.io/LittleJS/) - Clean project with only a few things to get you started
 ### [Puzzle Game](https://killedbyapixel.github.io/LittleJS/examples/puzzle) - Match 3 puzzle game with HD rendering and high score tracking
@@ -38,86 +16,32 @@ LittleJS is a lightweight 2D JavaScript game engine with a super fast WebGL rend
 ### [Breakout](https://killedbyapixel.github.io/LittleJS/examples/breakout) - Breakout game with mouse/touch or gamepad control
 ### [Stress Test](https://killedbyapixel.github.io/LittleJS/examples/stress) - Max sprite/object test and music system demo
 
-## How to use LittleJS
+## Features
 
-It is recommended that you start by copying the [LittleJS Starter Project](https://github.com/KilledByAPixel/LittleJS/blob/main/game.js) It is mostly empty with just a few things you can use to get started or remove. You can also download and include [engine.all.js](https://github.com/KilledByAPixel/LittleJS/blob/main/engine/engine.all.js) or [engine.all.min.js](https://github.com/KilledByAPixel/LittleJS/blob/main/engine/engine.all.min.js).
+- Very small footprint with no dependencies
+- Can update and render 10,000+ objects at 60fps, often many times more
+- Object oriented system with fast 2D physics and collision handling for axis aligned boxes
+- Positional audio effects with [zzfx](https://killedbyapixel.github.io/ZzFX/) and music with [zzfxm](https://keithclark.github.io/ZzFXM/), mp3s, or wavs
+- Input processing system with keyboard, mouse, gamepad, and touch support
+- Particle effects system (particle editor/designer in progress)
+- Medal system tracks and displays achievements with Newgrounds and OS13k integration
+- Several easy to understand example projects you can build on
+- Debug tools and debug rendering system
+- [Full documentation](https://killedbyapixel.github.io/LittleJS/docs) automatically generated from the source code block tags with [JSDoc](https://github.com/jsdoc/jsdoc)
+- Build system automatically combines everything, minifies, and removes unused code
+- For size coding competitions like [js13kGames](https://js13kgames.com/), starter project builds to a 7KB zip with [Roadroller](https://github.com/lifthrasiir/roadroller)
+- Easily build a Windows executable with [Electron](https://www.electronjs.org/) for distribution on platforms like Steam
+- Open Source with the [MIT license](https://github.com/KilledByAPixel/LittleJS/blob/main/LICENSE) so it can be used for anything you want
 
-In order to load files like images you will need to run a small web server like http-server on npm. I prefer to use an editor that does this for me automatically like [Brackets](https://brackets.io/) or Vs Code with the [Live Server plugin](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer).
+## Builds
 
-To startup LittleJS, you must create 5 functions and call engineInit. A canvas will automatically be created and added to the document. You can use this template to get started.
+To easily include LittleJS in your game, you can use one of the 3 pre-built js files. These are also built automatically by the build scripts..
 
-```javascript
+- [engine.all.js](https://github.com/KilledByAPixel/LittleJS/blob/main/engine/engine.all.js) - The full game engine with debug mode available
+- [engine.all.release.js](https://github.com/KilledByAPixel/LittleJS/blob/main/engine/engine.all.release.js) - The engine optimized for release builds
+- [engine.all.min.js](https://github.com/KilledByAPixel/LittleJS/blob/main/engine/engine.all.min.js) - The engine in release mode and minified
 
-function gameInit()
-{
-    // called once after the engine starts up
-    // setup the game
-}
-
-function gameUpdate()
-{
-    // called every frame at 60 frames per second
-    // handle input and update the game state
-}
-
-function gameUpdatePost()
-{
-    // called after physics and objects are updated
-    // setup camera and prepare for render
-}
-
-function gameRender()
-{
-    // called before objects are rendered
-    // draw any background effects that appear behind objects
-}
-
-function gameRenderPost()
-{
-    // called after objects are rendered
-    // draw effects or hud that appear above all objects
-}
-
-// startup LittleJS with your game functions after the tile image is loaded
-engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, 'tiles.png');
-```
-
-For most games you will want to extend EngineObject with your own objects. This will create an object class called GameObject and the constructor automatically adds it to the list of objects. Engine objects are automatically updated and rendered until they are destroyed.
-
-You can override these functions to make objects behave however you want. See the examples for a complete demonstration.
-
-```javascript
-class MyObject extends EngineObject 
-{
-    constructor(pos, size, tileIndex, tileSize, angle, color)
-    {
-        super(pos, size, tileIndex, tileSize, angle, color);
-        // your object init code here
-    }
-
-    update()
-    {
-        super.update(); // update object physics and position
-        // your object update code here
-    }
-
-    render()
-    {
-        super.render(); // draw object as a sprite
-        // your object render code here
-    }
-}
-```
-
-## Engine Configuration
-
-All engine settings are listed in [engineConfig.js](https://github.com/KilledByAPixel/LittleJS/blob/main/engine/engineConfig.js). Here are the most important settings...
-
-- fixedWidth and fixedHeight - use a fixed canvas resolution if set
-- pixelated - disable anti-aliasing for pixel art style games
-- glOverlay - fix slow rendering in some browsers by making the WebGL canvas visible instead of compositing
-- glEnable - run without WebGL, though it is slower to render sprites and textured coloring is disabled
-- audioVolume - adjust volume of sound effects, music, and speech
+The hello world example includes a batch file [build.bat](https://github.com/KilledByAPixel/LittleJS/blob/main/build.bat) that compresses everything into a tiny zip file using Google Closure, UglifyJS, Roadroller, and ECT.
 
 ## Games Made With LittleJS
 

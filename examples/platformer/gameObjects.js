@@ -25,7 +25,7 @@ class GameObject extends EngineObject
         // flash white when damaged
         if (!this.isDead() && this.damageTimer.isSet())
         {
-            const a = .5*percent(this.damageTimer.get(), 0, .15);
+            const a = .5*percent(this.damageTimer.get(), .15, 0);
             this.additiveColor = new Color(a,a,a,0);
         }
         else
@@ -66,7 +66,7 @@ class Crate extends GameObject
 {
     constructor(pos, typeOverride) 
     { 
-        super(pos, defaultObjectSize, 2, vec2(16), (randInt(4))*PI/2);
+        super(pos, objectDefaultSize, 2, vec2(16), (randInt(4))*PI/2);
 
         this.color = (new Color).setHSLA(rand(),1,.8);
         this.health = 5;
@@ -80,7 +80,7 @@ class Crate extends GameObject
         if (this.isDestroyed)
             return;
 
-        playSound(sound_destroyObject, this.pos);
+        sound_destroyObject.play(this.pos);
         makeDebris(this.pos, this.color);
         this.destroy();
     }
@@ -112,7 +112,7 @@ class Enemy extends GameObject
         if (this.groundObject && rand() < .01 && this.pos.distance(player.pos) < 20)
         {
             this.velocity = vec2(rand(.1,-.1), rand(.4,.2));
-            playSound(sound_jump, this.pos);
+            sound_jump.play(this.pos);
         }
 
         // damage player if touching
@@ -126,7 +126,7 @@ class Enemy extends GameObject
             return;
 
         ++score;
-        playSound(sound_killEnemy, this.pos);
+        sound_killEnemy.play(this.pos);
         makeDebris(this.pos, this.color, 300);
         this.destroy();
     }
@@ -171,7 +171,7 @@ class Grenade extends GameObject
         }
         else if (this.beepTimer.elapsed())
         {
-            playSound(sound_grenade, this.pos)
+            sound_grenade.play(this.pos)
             this.beepTimer.set(1);
         }
     }
@@ -210,14 +210,14 @@ class Weapon extends EngineObject
 
         // shell effect
         this.addChild(this.shellEmitter = new ParticleEmitter(
-            vec2(), 0, 0, 0, .1,  // pos, emitSize, emitTime, emitRate, emiteCone
+            vec2(), 0, 0, 0, 0, .1,  // pos, angle, emitSize, emitTime, emitRate, emiteCone
             undefined, undefined, // tileIndex, tileSize
             new Color(1,.8,.5), new Color(.9,.7,.5), // colorStartA, colorStartB
             new Color(1,.8,.5), new Color(.9,.7,.5), // colorEndA, colorEndB
             3, .1, .1, .15, .1, // particleTime, sizeStart, sizeEnd, particleSpeed, particleAngleSpeed
             1, .95, 1, 0, 0,    // damping, angleDamping, gravityScale, particleCone, fadeRate, 
             .1, 1              // randomness, collide, additive, randomColorLinear, renderOrder
-        ));
+        ), vec2(.1,0), -.8);
         this.shellEmitter.elasticity = .5;
         this.shellEmitter.particleDestroyCallback = persistentParticleDestroyCallback;
     }
@@ -239,15 +239,14 @@ class Weapon extends EngineObject
             for (; this.fireTimeBuffer > 0; this.fireTimeBuffer -= 1/this.fireRate)
             {
                 // create bullet
-                playSound(sound_shoot, this.pos);
+                sound_shoot.play(this.pos);
                 this.localAngle = -rand(.2,.15);
                 this.recoilTimer.set(.4);
-                const direction = vec2(this.getMirrorSign(this.bulletSpeed), 0);
-                const velocity = direction.rotate(rand(1,-1)*this.bulletSpread);
+                const direction = vec2(this.bulletSpeed*this.getMirrorSign(), 0);
+                const velocity = direction.rotate(rand(-1,1)*this.bulletSpread);
                 new Bullet(this.pos, this.parent, velocity, this.damage);
 
                 // spawn shell particle
-                this.shellEmitter.localAngle = -.8*this.getMirrorSign();
                 this.shellEmitter.emitParticle();
             }
         }
@@ -277,14 +276,14 @@ class Bullet extends EngineObject
 
     update()
     {
-        super.update();
-
         // check if hit someone
-        forEachObject(this.pos, this.size, (o)=>
+        engineObjectsCallback(this.pos, this.size, (o)=>
         {
             if (o.isGameObject)
                 this.collideWithObject(o)
         });
+            
+        super.update();
 
         this.angle = this.velocity.angle();
         this.range -= this.velocity.length();
@@ -322,7 +321,7 @@ class Bullet extends EngineObject
 
         // spark effects
         const emitter = new ParticleEmitter(
-            this.pos, 0, .1, 100, .5, // pos, emitSize, emitTime, emitRate, emiteCone
+            this.pos, 0, 0, .1, 100, .5, // pos, angle, emitSize, emitTime, emitRate, emiteCone
             undefined, undefined,     // tileIndex, tileSize
             new Color(1,1,0), new Color(1,0,0), // colorStartA, colorStartB
             new Color(1,1,0), new Color(1,0,0), // colorEndA, colorEndB

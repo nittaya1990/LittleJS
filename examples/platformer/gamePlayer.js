@@ -24,7 +24,7 @@ class Character extends GameObject
         this.deadTimer          = new Timer;
         this.grendeThrowTimer   = new Timer;
         this.drawSize = vec2(1);
-        this.color = (new Color).setHSLA(rand(),1,.5);
+        this.color = (new Color).setHSLA(rand(),1,.7);
         this.renderOrder = 10;
         this.walkCyclePercent = 0;
         this.health = 1;
@@ -59,9 +59,9 @@ class Character extends GameObject
         if (this.dodgeTimer.active())
         {
             // update roll
-            this.angle = this.getMirrorSign(2*PI*this.dodgeTimer.getPercent());
+            this.angle = this.getMirrorSign()*2*PI*this.dodgeTimer.getPercent();
             if (this.groundObject)
-                this.velocity.x += this.getMirrorSign(.1);
+                this.velocity.x += this.getMirrorSign()*.1;
         }
         else
         {
@@ -73,7 +73,7 @@ class Character extends GameObject
                 this.dodgeTimer.set(.4);
                 this.dodgeRechargeTimer.set(2);
                 this.jumpTimer.unset();
-                playSound(sound_dodge, this.pos);
+                sound_dodge.play(this.pos);
 
                 if (!this.groundObject && this.getAliveTime() > .2)
                     this.velocity.y += .2;
@@ -84,7 +84,7 @@ class Character extends GameObject
                 const grenade = new Grenade(this.pos);
                 grenade.velocity = this.velocity.add(vec2(this.getMirrorSign(),rand(.8,.7)).normalize(.2+rand(.02)));
                 grenade.angleVelocity = this.getMirrorSign() * rand(.8,.5);
-                playSound(sound_jump, this.pos);
+                sound_jump.play(this.pos);
                 this.grendeThrowTimer.set(1);
             }
             this.wasPressingThrow = this.pressingThrow;
@@ -94,7 +94,7 @@ class Character extends GameObject
         let touchingLadder = 0;
         for (let y=2;y--;)
         {
-            const testPos = this.pos.add(vec2(0, y + .1*moveInput.y - this.size.y*.5));
+            const testPos = this.pos.add(vec2(0, y + .1*moveInput.y - this.size.y/2));
             const collisionData = getTileCollisionData(testPos);
             touchingLadder |= collisionData == tileType_ladder;
         }
@@ -126,7 +126,12 @@ class Character extends GameObject
         {
             // update jumping and ground check
             if (this.groundObject || this.climbingWall)
+            {
+                if (!this.groundTimer.isSet())
+                    sound_walk.play(this.pos); // land sound
+                    
                 this.groundTimer.set(.1);
+            }
 
             if (this.groundTimer.active() && !this.dodgeTimer.active())
             {
@@ -141,7 +146,7 @@ class Character extends GameObject
                         this.velocity.y = .15;
                         this.jumpTimer.set(.2);
                     }
-                    playSound(sound_jump, this.pos);
+                    sound_jump.play(this.pos);
                 }
             }
 
@@ -169,7 +174,7 @@ class Character extends GameObject
         
         // apply movement acceleration and clamp
         const maxCharacterSpeed = .2;
-        this.velocity.x = clamp(this.velocity.x + moveInput.x * .042, maxCharacterSpeed, -maxCharacterSpeed);
+        this.velocity.x = clamp(this.velocity.x + moveInput.x * .042, -maxCharacterSpeed, maxCharacterSpeed);
 
         // track last pos for ladder collision code
         this.lastPos = this.pos.copy();
@@ -178,27 +183,27 @@ class Character extends GameObject
         super.update();
 
         // update walk cycle
+        const speed = this.velocity.length();
         if (this.climbingLadder || this.groundTimer.active() && !this.dodgeTimer.active())
         {
-            const speed = this.velocity.length();
             this.walkCyclePercent += speed * .5;
-            this.walkCyclePercent = speed > .01 ? mod(this.walkCyclePercent, 1) : 0;
+            this.walkCyclePercent = speed > .01 ? mod(this.walkCyclePercent) : 0;
         }
         else
             this.walkCyclePercent = 0;
 
         // update walk sound
-        this.walkSoundTime += abs(this.velocity.x);
-        if (abs(this.velocity.x) > .01 && this.groundTimer.active() && !this.dodgeTimer.active())
+        this.walkSoundTime += speed;
+        if (speed > .001 && ((this.climbingLadder || this.groundTimer.active()) && !this.dodgeTimer.active()))
         {
             if (this.walkSoundTime > 1)
             {
-                this.walkSoundTime = 0;
-                playSound(sound_walk, this.pos);
+                this.walkSoundTime = this.walkSoundTime%1;
+                sound_walk.play(this.pos);
             }
         }
         else
-            this.walkSoundTime = .5;
+            this.walkSoundTime = 0;
 
         // update mirror
         if (moveInput.x && !this.dodgeTimer.active())
@@ -215,7 +220,7 @@ class Character extends GameObject
         if (!this.isDead())
         {
             // bounce pos with walk cycle
-            bodyPos = bodyPos.add(vec2(0,.04-.04*Math.cos(this.walkCyclePercent*PI*2)));
+            bodyPos = bodyPos.add(vec2(0,.05*Math.sin(this.walkCyclePercent*PI)));
 
             // make bottom flush
             bodyPos = bodyPos.add(vec2(0,(this.drawSize.y-this.size.y)/2));
@@ -238,7 +243,7 @@ class Character extends GameObject
             return;
 
         makeBlood(this.pos, 300);
-        playSound(sound_die, this.pos);
+        sound_die.play(this.pos);
 
         this.health = 0;
         this.weapon.destroy();
@@ -258,7 +263,7 @@ class Character extends GameObject
         if (data == tileType_ladder)
         {
             // handle ladder collisions
-            if (pos.y + 1 > this.lastPos.y - this.size.y*.5)
+            if (pos.y + 1 > this.lastPos.y - this.size.y/2)
                 return;
 
             if (getTileCollisionData(pos.add(vec2(0,1)))      // above
@@ -271,7 +276,7 @@ class Character extends GameObject
         }
 
         const d = pos.y - this.pos.y;
-        if (!this.climbingLadder && this.velocity.y > .1 && d > 0 && d < this.size.y*.5)
+        if (!this.climbingLadder && this.velocity.y > .1 && d > 0 && d < this.size.y/2)
         if (destroyTile(pos))
         {
             // break blocks above
@@ -292,11 +297,11 @@ class Player extends Character
         // player controls
         this.holdingJump   = keyIsDown(38) || gamepadIsDown(0);
         this.holdingShoot  = mouseIsDown(0) || keyIsDown(90) || gamepadIsDown(2);
-        this.pressedDodge  = mouseIsDown(1) || keyIsDown(88) || gamepadIsDown(3);
-        this.pressingThrow = mouseIsDown(2) || keyIsDown(67) || gamepadIsDown(1);
+        this.pressingThrow = mouseIsDown(1) || keyIsDown(67) || gamepadIsDown(1);
+        this.pressedDodge  = mouseIsDown(2) || keyIsDown(88) || gamepadIsDown(3);
 
         // movement control
-        this.moveInput = usingGamepad ? gamepadStick(0) : 
+        this.moveInput = isUsingGamepad ? gamepadStick(0) : 
             vec2(keyIsDown(39) - keyIsDown(37), keyIsDown(38) - keyIsDown(40));
 
         super.update();

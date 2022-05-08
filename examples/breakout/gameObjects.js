@@ -18,7 +18,7 @@ class Paddle extends EngineObject
 
     update()
     {
-        if (usingGamepad)
+        if (isUsingGamepad)
         {
             // control with gamepad
             this.pos.x += gamepadStick(0).x;
@@ -28,7 +28,7 @@ class Paddle extends EngineObject
             // move to mouse
             this.pos.x = mousePos.x;
         }
-        this.pos.x = clamp(this.pos.x, levelSize.x - this.size.x/2, this.size.x/2);
+        this.pos.x = clamp(this.pos.x, this.size.x/2, levelSize.x - this.size.x/2);
     }
 }
 
@@ -51,16 +51,16 @@ class Block extends EngineObject
         this.destroy();
         ++score;
         --blockCount;
-        playSound(sound_breakBlock, this.pos, 0);
+        sound_breakBlock.play(this.pos);
 
         const color1 = this.color;
         const color2 = color1.lerp(new Color, .5);
         new ParticleEmitter(
-            this.pos, this.size, .1, 400, PI,     // pos, emitSize, emitTime, emitRate, emiteCone
+            this.pos, 0, this.size, .1, 200, PI,  // pos, angle, emitSize, emitTime, emitRate, emiteCone
             0, vec2(16),                          // tileIndex, tileSize
             color1, color2,                       // colorStartA, colorStartB
             color1.scale(1,0), color2.scale(1,0), // colorEndA, colorEndB
-            .2, .6, .6, .1, .05,  // particleTime, sizeStart, sizeEnd, particleSpeed, particleAngleSpeed
+            .2, 1, 1, .1, .05,    // particleTime, sizeStart, sizeEnd, particleSpeed, particleAngleSpeed
             .99, .95, .4, PI, .1, // damping, angleDamping, gravityScale, particleCone, fadeRate, 
             1, 0, 1               // randomness, collide, additive, randomColorLinear, renderOrder
         );
@@ -129,6 +129,6 @@ class Ball extends EngineObject
         this.velocity = this.velocity.normalize(speed);
 
         // scale bounce sound pitch by speed
-        playSound(sound_bounce, this.pos, 0, 1, speed);
+        sound_bounce.play(this.pos, 1, speed);
     }
 }

@@ -28,14 +28,14 @@ function buildTerrain(size)
 {
     tileBackground = [];
     initTileCollision(size);
-    let startGroundLevel = 80;
+    let startGroundLevel = 40;
     let groundLevel = startGroundLevel;
-    let groundSlope = rand(1,-1);
+    let groundSlope = rand(-1,1);
     let backgroundDelta = 0, backgroundDeltaSlope = 0;
     for (let x=0; x < size.x; x++)
     {
         // pull slope towards start ground level
-        groundLevel += groundSlope = rand() < .05 ? rand(1,-1) :
+        groundLevel += groundSlope = rand() < .05 ? rand(-1,1) :
             groundSlope + (startGroundLevel - groundLevel)/1e3;
         
         // small jump
@@ -46,9 +46,9 @@ function buildTerrain(size)
         {
             // big jump
             const jumpDelta = rand(19,-19);
-            startGroundLevel = clamp(startGroundLevel + jumpDelta, 80, 20);
+            startGroundLevel = clamp(startGroundLevel + jumpDelta, 20, 80);
             groundLevel += jumpDelta;
-            groundSlope = rand(1,-1);
+            groundSlope = rand(-1,1);
         }
 
         backgroundDelta += backgroundDeltaSlope;
@@ -57,10 +57,10 @@ function buildTerrain(size)
         if (rand() < .1)
             backgroundDelta = 0;
         if (rand() < .1)
-            backgroundDeltaSlope = rand(1,-1);
-        backgroundDelta = clamp(backgroundDelta, 3, -1)
+            backgroundDeltaSlope = rand(-1,1);
+        backgroundDelta = clamp(backgroundDelta, -1, 3)
 
-        groundLevel = clamp(groundLevel, 99, 30);
+        groundLevel = clamp(groundLevel, 20, levelSize.y-20);
         for (let y=0; y < size.y; y++)
         {
             const pos = vec2(x,y);
@@ -90,7 +90,7 @@ function buildTerrain(size)
     }
 
     // add ladders
-    for (let ladderCount=50; ladderCount--;)
+    for (let ladderCount = 40; ladderCount--;)
     {
         // pick random pos
         const pos = vec2(randInt(levelSize.x), randInt(levelSize.y))
@@ -122,14 +122,14 @@ function buildTerrain(size)
         new Crate(vec2((randInt(levelSize.x))+.5, randInt(levelSize.y)));
 
     // spawn enemies
-    for (let enemyCount=20; enemyCount--;)
+    for (let enemyCount=10; enemyCount--;)
         new Enemy(vec2(rand(levelSize.x), rand(levelSize.y)));
 }
 
 function generateLevel()
 {
     // clear old level
-    destroyAllObjects();
+    engineObjectsDestroy();
 
     // randomize ground level hills
     buildTerrain(levelSize);
@@ -181,11 +181,18 @@ function makeTileLayers()
     }
     tileLayer.redraw();
     tileBackgroundLayer.redraw();
+
+    if (!glEnable)
+    {
+        // get rid of background if webgl is not enabled
+        tileBackgroundLayer.destroy();
+        tileBackgroundLayer = 0;
+    }
 }
 
 function buildLevel()
 {
-    levelSize = vec2(300,200);
+    levelSize = vec2(256);
     levelColor = randColor(new Color(.2,.2,.2), new Color(.8,.8,.8));
     levelGroundColor = levelColor.mutate().add(new Color(.4,.4,.4)).clamp();
 
@@ -205,8 +212,8 @@ function buildLevel()
 
     // warm up level
     warmup = 1;
-    for (let i=5*FPS; i--;)
-        engineUpdateObjects();
+    for (let i=5*frameRate; i--;)
+        engineObjectsUpdate();
     warmup = 0;
 
     // spawn player

@@ -11,11 +11,9 @@ del %OUTPUT_FILENAME%
 rem combine code
 type engineDebug.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
-type engineUtil.js >> %OUTPUT_FILENAME%
+type engineUtilities.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
-type engineConfig.js >> %OUTPUT_FILENAME%
-echo.>> %OUTPUT_FILENAME%
-type engine.js >> %OUTPUT_FILENAME%
+type engineSettings.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
 type engineObject.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
@@ -27,11 +25,13 @@ type engineAudio.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
 type engineTileLayer.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
-type engineParticle.js >> %OUTPUT_FILENAME%
+type engineParticles.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
-type engineMedal.js >> %OUTPUT_FILENAME%
+type engineMedals.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
 type engineWebGL.js >> %OUTPUT_FILENAME%
+echo.>> %OUTPUT_FILENAME%
+type engine.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
 
 rem --- BUILD ENGINE RELEASE ---
@@ -44,9 +44,9 @@ del %OUTPUT_FILENAME%
 rem combine code
 type engineRelease.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
-type engineUtil.js >> %OUTPUT_FILENAME%
+type engineUtilities.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
-type engineConfig.js >> %OUTPUT_FILENAME%
+type engineSettings.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
 type engine.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
@@ -60,9 +60,9 @@ type engineAudio.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
 type engineTileLayer.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
-type engineParticle.js >> %OUTPUT_FILENAME%
+type engineParticles.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
-type engineMedal.js >> %OUTPUT_FILENAME%
+type engineMedals.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
 type engineWebGL.js >> %OUTPUT_FILENAME%
 echo.>> %OUTPUT_FILENAME%
@@ -87,7 +87,15 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 rem lightly minify with uglify
-call uglifyjs -o  %OUTPUT_FILENAME% -- %OUTPUT_FILENAME%
+call uglifyjs -o %OUTPUT_FILENAME% -- %OUTPUT_FILENAME%
+if %ERRORLEVEL% NEQ 0 (
+    pause
+    exit /b %ERRORLEVEL%
+)
+
+rem --- BUILD TYPESCRIPT DEFINITIONS ---
+
+call tsc engine.all.js --declaration --allowJs --emitDeclarationOnly --outFile index.d.ts
 if %ERRORLEVEL% NEQ 0 (
     pause
     exit /b %ERRORLEVEL%

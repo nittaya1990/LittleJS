@@ -11,17 +11,17 @@
 'use strict';
 
 ///////////////////////////////////////////////////////////////////////////////
-// zzfx sound effects
+// sound effects
 
-const sound_shoot =        [,,90,,.01,.03,4,,,,,,,9,50,.2,,.2,.01];
-const sound_destroyObject =[.5,,1e3,.02,,.2,1,3,.1,,,,,1,-30,.5,,.5];
-const sound_die =          [.5,.4,126,.05,,.2,1,2.09,,-4,,,1,1,1,.4,.03];
-const sound_jump =         [.4,.2,250,.04,,.04,,,1,,,,,3];
-const sound_dodge =        [.4,.2,150,.05,,.05,,,-1,,,,,4,,,,,.02];
-const sound_walk =         [.3,.1,70,,,.01,4,,,,-9,.1,,,,,,.5];
-const sound_explosion =    [2,.2,72,.01,.01,.2,4,,,,,,,1,,.5,.1,.5,.02];
-const sound_grenade =      [.5,.01,300,,,.02,3,.22,,,-9,.2,,,,,,.5];
-const sound_killEnemy =    [,,783,,.03,.02,1,2,,,940,.03,,,,,.2,.6,,.06];
+const sound_shoot =        new Sound([,,90,,.01,.03,4,,,,,,,9,50,.2,,.2,.01]);
+const sound_destroyObject =new Sound([.5,,1e3,.02,,.2,1,3,.1,,,,,1,-30,.5,,.5]);
+const sound_die =          new Sound([.5,.4,126,.05,,.2,1,2.09,,-4,,,1,1,1,.4,.03]);
+const sound_jump =         new Sound([.4,.2,250,.04,,.04,,,1,,,,,3]);
+const sound_dodge =        new Sound([.4,.2,150,.05,,.05,,,-1,,,,,4,,,,,.02]);
+const sound_walk =         new Sound([.3,.1,70,,,.01,4,,,,-9,.1,,,,,,.5]);
+const sound_explosion =    new Sound([2,.2,72,.01,.01,.2,4,,,,,,,1,,.5,.1,.5,.02]);
+const sound_grenade =      new Sound([.5,.01,300,,,.02,3,.22,,,-9,.2,,,,,,.5]);
+const sound_killEnemy =    new Sound([,,783,,.03,.02,1,2,,,940,.03,,,,,.2,.6,,.06]);
 
 ///////////////////////////////////////////////////////////////////////////////
 // special effects
@@ -39,7 +39,7 @@ function makeDebris(pos, color = new Color, amount = 100, size=.2, elasticity = 
 {
     const color2 = color.lerp(new Color, .5);
     const emitter = new ParticleEmitter(
-        pos, 1, .1, 100, PI, // pos, emitSize, emitTime, emitRate, emiteCone
+        pos, 0, 1, .1, 100, PI, // pos, angle, emitSize, emitTime, emitRate, emiteCone
         undefined, undefined,  // tileIndex, tileSize
         color, color2,         // colorStartA, colorStartB
         color, color2,         // colorEndA, colorEndB
@@ -63,7 +63,7 @@ function explosion(pos, radius=3)
     // destroy level
     for (let x = -radius; x < radius; ++x)
     {
-        const h = (radius**2 - x**2)**.5;
+        const h = (radius*radius - x*x)**.5;
         for (let y = -h; y <= h; ++y)
             destroyTile(pos.add(vec2(x,y)), 0, 0);
     }
@@ -74,12 +74,12 @@ function explosion(pos, radius=3)
     {
         const h = (cleanupRadius**2 - x**2)**.5;
         for (let y = -h; y < h; ++y)
-            decorateTile(pos.add(vec2(x,y)).int());
+            decorateTile(pos.add(vec2(x,y)).floor());
     }
 
     // kill/push objects
     const maxRangeSquared = (radius*1.5)**2;
-    forEachObject(pos, radius*3, (o)=> 
+    engineObjectsCallback(pos, radius*3, (o)=> 
     {
         const d = o.pos.distance(pos);
         if (o.isGameObject)
@@ -89,18 +89,18 @@ function explosion(pos, radius=3)
         }
 
         // push
-        const p = percent(d, radius, 2*radius);
+        const p = percent(d, 2*radius, radius);
         const force = o.pos.subtract(pos).normalize(p*radius*.2);
         o.applyForce(force);
         if (o.isDead && o.isDead())
             o.angleVelocity += randSign()*rand(p*radius/4,.3);
     });
 
-    playSound(sound_explosion, pos);
+    sound_explosion.play(pos);
 
     // smoke
     new ParticleEmitter(
-        pos, radius/2, .2, 50*radius, PI, // pos, emitSize, emitTime, emitRate, emiteCone
+        pos, 0, radius/2, .2, 50*radius, PI, // pos, angle, emitSize, emitTime, emitRate, emiteCone
         0, undefined,        // tileIndex, tileSize
         new Color(0,0,0), new Color(0,0,0), // colorStartA, colorStartB
         new Color(0,0,0,0), new Color(0,0,0,0), // colorEndA, colorEndB
@@ -111,7 +111,7 @@ function explosion(pos, radius=3)
 
     // fire
     new ParticleEmitter(
-        pos, radius/2, .1, 100*radius, PI, // pos, emitSize, emitTime, emitRate, emiteCone
+        pos, 0, radius/2, .1, 100*radius, PI, // pos, angle, emitSize, emitTime, emitRate, emiteCone
         0, undefined,        // tileIndex, tileSize
         new Color(1,.5,.1), new Color(1,.1,.1), // colorStartA, colorStartB
         new Color(1,.5,.1,0), new Color(1,.1,.1,0), // colorEndA, colorEndB
@@ -126,7 +126,7 @@ function explosion(pos, radius=3)
 function destroyTile(pos, makeSound = 1, cleanNeighbors = 1)
 {
     // pos must be an int
-    pos = pos.int();
+    pos = pos.floor();
 
     // destroy tile
     const tileType = getTileCollisionData(pos);
@@ -138,7 +138,7 @@ function destroyTile(pos, makeSound = 1, cleanNeighbors = 1)
     if (layerData)
     {
         makeDebris(centerPos, layerData.color.mutate());
-        makeSound && playSound(sound_destroyObject, centerPos);
+        makeSound && sound_destroyObject.play(centerPos);
 
         setTileCollisionData(pos, tileType_empty);
         tileLayer.setData(pos, new TileLayerData, 1); // set and clear tile
@@ -157,6 +157,9 @@ function destroyTile(pos, makeSound = 1, cleanNeighbors = 1)
 
 function decorateBackgroundTile(pos)
 {
+    if (!tileBackgroundLayer)
+        return;
+
     const tileData = getTileBackgroundData(pos);
     if (tileData <= 0)
         return;
@@ -170,9 +173,9 @@ function decorateBackgroundTile(pos)
         if (neighborTileDataA > 0 | neighborTileDataB > 0)
             continue;
 
-        const directionVector = vec2().setAngle(i*PI/2+PI/4, 10).int();
+        const directionVector = vec2().setAngle(i*PI/2+PI/4, 10).floor();
         const drawPos = pos.add(vec2(.5))          // center
-            .scale(16).add(directionVector).int(); // direction offset
+            .scale(16).add(directionVector).floor(); // direction offset
 
         // clear rect without any scaling to prevent blur from filtering
         const s = 2;
@@ -200,7 +203,7 @@ function decorateTile(pos)
 
         // make pixel perfect outlines
         const size = i&1 ? vec2(2, 16) : vec2(16, 2);
-        tileLayer.context.fillStyle = levelGroundColor.mutate(.1).rgba();
+        tileLayer.context.fillStyle = levelGroundColor.mutate(.1);
         const drawPos = pos.scale(16)
             .add(vec2(i==1?14:0,(i==0?14:0)))
             .subtract((i&1? vec2(0,8-size.y/2) : vec2(8-size.x/2,0)));
@@ -225,8 +228,8 @@ function drawSky()
 {
     // fill background with a gradient
     const gradient = mainContext.fillStyle = mainContext.createLinearGradient(0, 0, 0, mainCanvas.height);
-    gradient.addColorStop(0, skyColor.rgba());
-    gradient.addColorStop(1, horizonColor.rgba());
+    gradient.addColorStop(0, skyColor);
+    gradient.addColorStop(1, horizonColor);
     mainContext.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
 }
 
@@ -235,7 +238,7 @@ function drawStars()
     // draw stars and planets
     randSeed = skySeed;
     const largeStarCount = 9;
-    for (let i = lowGraphicsSettings ? 400 : 1e3; i--;)
+    for (let i = 1e3; i--;)
     {
         let size = randSeeded(6, 1);
         let speed = randSeeded() < .9 ? randSeeded(5) : randSeeded(99,9);
@@ -254,17 +257,11 @@ function drawStars()
             (randSeeded(w)+time*speed)%w-extraSpace,
             (randSeeded(h)+time*speed*randSeeded())%h-extraSpace);
 
-        if (lowGraphicsSettings)
-        {
-            // drawing stars with gl is too slow in low graphics mode, just draw rects
-            mainContext.fillStyle = color.rgba();
-            if (size < 9)
-                mainContext.fillRect(screenPos.x, screenPos.y, size, size);
-            else
-                mainContext.beginPath(mainContext.fill(mainContext.arc(screenPos.x, screenPos.y, size, 0, 9)));
-        }
+        mainContext.fillStyle = color;
+        if (size < 9)
+            mainContext.fillRect(screenPos.x, screenPos.y, size, size);
         else
-            drawTileScreenSpace(screenPos, vec2(size), 0, vec2(16), color);
+            mainContext.beginPath(mainContext.fill(mainContext.arc(screenPos.x, screenPos.y, size, 0, 9)));
     }
 }
 
@@ -288,11 +285,11 @@ function initParallaxLayers()
         const layerColor = levelColor.mutate(.2).lerp(skyColor,.95-i*.15);
         const gradient = tileParallaxLayer.context.fillStyle = 
             tileParallaxLayer.context.createLinearGradient(0,0,0,tileParallaxLayer.canvas.height = parallaxSize.y);
-        gradient.addColorStop(0,layerColor.rgba());
-        gradient.addColorStop(1,layerColor.subtract(new Color(1,1,1,0)).mutate(.1).clamp().rgba());
+        gradient.addColorStop(0,layerColor);
+        gradient.addColorStop(1,layerColor.subtract(new Color(1,1,1,0)).mutate(.1).clamp());
 
         // draw mountains ranges
-        let groundLevel = startGroundLevel, groundSlope = rand(1,-1);
+        let groundLevel = startGroundLevel, groundSlope = rand(-1,1);
         for (let x=parallaxSize.x;x--;)
             tileParallaxLayer.context.fillRect(x,groundLevel += groundSlope = rand() < .05 ? rand(1, -1) :
                 groundSlope + (startGroundLevel - groundLevel)/2e3, 1, parallaxSize.y)

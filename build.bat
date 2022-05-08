@@ -1,6 +1,6 @@
 rem Simple build script for LittleJS by Frank Force
 rem Minfies and combines index.html and index.js and zips the result
-rem Run engine\buildSetup.bat first to install dependencies
+rem See the readme for a list of required dependencies.
 
 set NAME=game
 set BUILD_FOLDER=build
@@ -8,7 +8,11 @@ set BUILD_FILENAME=index.js
 
 rem rebuild engine first
 cd engine
-call build.bat
+call engineBuild.bat
+if %ERRORLEVEL% NEQ 0 (
+    pause
+    exit /b %ERRORLEVEL%
+)
 cd ..
 
 rem remove old files
@@ -53,8 +57,9 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b %ERRORLEVEL%
 )
 
-rem build the html
-echo ^<body^>^<script^> >> index.html
+rem build the html, you can add html header and footers here
+rem type ..\header.html >> index.html
+echo ^<body^>^<meta charset=utf-8^>^<script^> >> index.html
 type roadroller_%BUILD_FILENAME% >> index.html
 echo ^</script^> >> index.html
 
